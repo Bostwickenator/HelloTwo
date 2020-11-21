@@ -23,7 +23,7 @@ const int analog_ip = A0; //Naming analog input pin
 int inputVal  = 0;        //Variable to store analog input values
 
 
-unsigned int samplingTime = 280;
+unsigned int samplingTime = 10;
 unsigned int deltaTime = 40;
 unsigned int sleepTime = 9680;
 
@@ -61,9 +61,9 @@ void setup() {
 
 int dustSamples = 0;    
 int dustAcc=0;
-void accumulateDust() {
+void accumulateDust(int sampleTime) {
   digitalWrite(DUST_LED,LOW);
-  delayMicroseconds(samplingTime);
+  delayMicroseconds(sampleTime);
   
   dustAcc += analogRead(A0);
   
@@ -82,11 +82,29 @@ float readDust(){
 
                                                                                                                                                                                                       
 void loop() {
-  accumulateDust();
+  for(int i =0;i<2;i++){
+  accumulateDust(160);
+ // delay(1);
+  }
+ float dust = readDust();
 
+    Serial.print("Dust: "); Serial.print(dust); Serial.print("  ");
 
-  long now = millis();
-  if (now - lastMsgTime > MQTT_PUBLISH_DELAY) {
+  for(int i =0;i<2;i++){
+  accumulateDust(280);
+ // delay(1);
+  }
+  dust = readDust();
+
+    Serial.print("Dust280: "); Serial.print(dust); Serial.print("  ");
+    
+    // Serial.print("Sampleing: "); Serial.print(samplingTime); Serial.print("  ");
+    Serial.println("");
+ /*   samplingTime++;
+    if(samplingTime > 260){
+      samplingTime=140;}
+*/
+  /*if (now - lastMsgTime > MQTT_PUBLISH_DELAY) {
     lastMsgTime = now;
 
 
@@ -116,8 +134,8 @@ void loop() {
 
     WiFi.mode( WIFI_OFF);
     WiFi.forceSleepBegin();
-  }
-  delay(5000);
+  }*/
+  delay(100);
   
 }
 

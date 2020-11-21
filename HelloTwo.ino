@@ -11,7 +11,7 @@
 #define MQTT_TOPIC_TEMPERATURE "home/hellotwo/temperature"
 #define MQTT_TOPIC_PM "home/hellotwo/particulate"
 #define MQTT_TOPIC_STATE "home/hellotwo/status"
-#define MQTT_PUBLISH_DELAY 60000
+#define MQTT_PUBLISH_DELAY 60000 * 2
 #define MQTT_CLIENT_ID "esp8266bme280"
 
 extern "C"
@@ -81,7 +81,10 @@ float readDust()
 
 void loop()
 {
-  accumulateDust();
+  for(int i=0;i<5;i++){
+    accumulateDust();
+    yield();
+  }
 
   long now = millis();
   if (now - lastMsgTime > MQTT_PUBLISH_DELAY)

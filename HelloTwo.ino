@@ -14,6 +14,10 @@
 #define MQTT_PUBLISH_DELAY 60000
 #define MQTT_CLIENT_ID "esp8266bme280"
 
+extern "C" {
+ #include "user_interface.h"
+}
+
 
 const int analog_ip = A0; //Naming analog input pin
 int inputVal  = 0;        //Variable to store analog input values
@@ -50,7 +54,7 @@ void setup() {
   Serial.begin(115200);    // Initiating Serial communication
   htu.begin();
 
-   setupWifi();
+  setupWifi();
   mqttClient.setServer(MQTT_SERVER, 1883);
 
 }                 
@@ -79,34 +83,60 @@ float readDust(){
                                                                                                                                                                                                       
 void loop() {
   accumulateDust();
-  if (!mqttClient.connected()) {
-    mqttReconnect();
-  }
-  mqttClient.loop();
+
 
   long now = millis();
   if (now - lastMsgTime > MQTT_PUBLISH_DELAY) {
     lastMsgTime = now;
-    
-   temperature = htu.readTemperature();
-  humidity = htu.readHumidity();
-  float dust = readDust();
 
-  Serial.print("Dust: "); Serial.print(dust); Serial.print("");
-  Serial.print("Temp: "); Serial.print(temperature); Serial.print("C");
-  Serial.print("Humidity: "); Serial.print(humidity); Serial.println("\%");
+
+    
+    temperature = htu.readTemperature();
+    humidity = htu.readHumidity();
+    Serial.print("Dust: "); Serial.print(dustSamples); Serial.println(" ");
+    float dust = readDust();
+  
+    Serial.print("Dust: "); Serial.print(dust); Serial.print(" ");
+    Serial.print("Temp: "); Serial.print(temperature); Serial.print("C ");
+    Serial.print("Humidity: "); Serial.print(humidity); Serial.println("\%");
+
+    setupWifi();
+    if (!mqttClient.connected()) {
+      mqttReconnect();
+    }
 
     // Publishing sensor data
     mqttPublish(MQTT_TOPIC_TEMPERATURE, temperature);
     mqttPublish(MQTT_TOPIC_HUMIDITY, humidity);
     mqttPublish(MQTT_TOPIC_PM, dust);
+
+    mqttClient.loop();
+
+    delay(1000);
+
+    WiFi.mode( WIFI_OFF);
+    WiFi.forceSleepBegin();
   }
+  delay(5000);
+  
 }
 
+
+IPAddress ip( 192, 168, 0, 171 );
+IPAddress gateway( 192, 168, 0, 254 );
+IPAddress subnet( 255, 255, 255, 0 );
+
 void setupWifi() {
+
+  WiFi.forceSleepWake();
+  delay( 1 );
+  WiFi.persistent( false );
+  Serial.println("");
   Serial.print("Connecting to ");
   Serial.println(WIFI_SSID);
 
+  WiFi.mode( WIFI_STA );
+  WiFi.config( ip, gateway, subnet );
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   while (WiFi.status() != WL_CONNECTED) {
@@ -118,6 +148,8 @@ void setupWifi() {
   Serial.println("WiFi connected");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+
+  wifi_set_sleep_type(LIGHT_SLEEP_T);
 }
 
 void mqttReconnect() {
@@ -145,4 +177,13 @@ void mqttPublish(char *topic, float payload) {
   Serial.println(payload);
 
   mqttClient.publish(topic, String(payload).c_str(), true);
+}
+
+#define MATH_E 2.718281828459045235360287
+float absoluteHumidity(float T, float rh){
+  return (6.112 * pow(MATH_E,((17.67 * T)/(T+243.5))) * rh * 18.02) /((273.15+T) * 100 * 0.08314);
+}
+
+float relativeHumidity(float absoluteHumidity, float T) {
+  return (absoluteHumidity * ((273.15+T) * 100 * 0.08314)) / (6.112 * pow(MATH_E,((17.67* T)/(T+243.5))) * 18.02) ;
 }

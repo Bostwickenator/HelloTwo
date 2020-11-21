@@ -1,5 +1,5 @@
-// Robo India Tutorial 
-// Digital Input and Output on LED 
+// Robo India Tutorial
+// Digital Input and Output on LED
 // Hardware: NodeMCU
 #include <Wire.h>
 #include "Adafruit_HTU21DF.h"
@@ -14,28 +14,25 @@
 #define MQTT_PUBLISH_DELAY 60000
 #define MQTT_CLIENT_ID "esp8266bme280"
 
-extern "C" {
- #include "user_interface.h"
+extern "C"
+{
+#include "user_interface.h"
 }
 
-
 const int analog_ip = A0; //Naming analog input pin
-int inputVal  = 0;        //Variable to store analog input values
-
+int inputVal = 0;         //Variable to store analog input values
 
 unsigned int samplingTime = 280;
 unsigned int deltaTime = 40;
 unsigned int sleepTime = 9680;
 
-const int DUST_LED=D3;
-
-
+const int DUST_LED = D3;
 
 const char *WIFI_SSID = "TP-Link_D310";
 const char *WIFI_PASSWORD = "61193222";
 
 const char *MQTT_SERVER = "192.168.0.128";
-const char *MQTT_USER = "mqttuser"; // NULL for no authentication
+const char *MQTT_USER = "mqttuser";         // NULL for no authentication
 const char *MQTT_PASSWORD = "mqttpassword"; // NULL for no authentication
 
 float humidity;
@@ -46,62 +43,71 @@ WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 Adafruit_HTU21DF htu = Adafruit_HTU21DF();
 
-void setup() {
-  pinMode(DUST_LED, OUTPUT);  // Defining pin as output
-  pinMode(D0,OUTPUT);
-  digitalWrite(D0,LOW);
-  pinMode(A0,INPUT);
-  Serial.begin(115200);    // Initiating Serial communication
+void setup()
+{
+  pinMode(DUST_LED, OUTPUT); // Defining pin as output
+  pinMode(D0, OUTPUT);
+  digitalWrite(D0, LOW);
+  pinMode(A0, INPUT);
+  Serial.begin(115200); // Initiating Serial communication
   htu.begin();
 
   setupWifi();
   mqttClient.setServer(MQTT_SERVER, 1883);
+}
 
-}                 
-
-int dustSamples = 0;    
-int dustAcc=0;
-void accumulateDust() {
-  digitalWrite(DUST_LED,LOW);
+int dustSamples = 0;
+int dustAcc = 0;
+void accumulateDust()
+{
+  digitalWrite(DUST_LED, LOW);
   delayMicroseconds(samplingTime);
-  
+
   dustAcc += analogRead(A0);
-  
+
   delayMicroseconds(deltaTime);
-  digitalWrite(DUST_LED,HIGH);
+  digitalWrite(DUST_LED, HIGH);
   delayMicroseconds(sleepTime);
   dustSamples++;
 }
 
-float readDust(){
+float readDust()
+{
   float val = ((float)dustAcc) / dustSamples;
   dustSamples = 0;
   dustAcc = 0;
   return val;
 }
 
-                                                                                                                                                                                                      
-void loop() {
+void loop()
+{
   accumulateDust();
 
-
   long now = millis();
-  if (now - lastMsgTime > MQTT_PUBLISH_DELAY) {
+  if (now - lastMsgTime > MQTT_PUBLISH_DELAY)
+  {
     lastMsgTime = now;
 
-
-    
     temperature = htu.readTemperature();
     humidity = htu.readHumidity();
-    Serial.print("Dust: "); Serial.print(dustSamples); Serial.println(" ");
+    Serial.print("Dust: ");
+    Serial.print(dustSamples);
+    Serial.println(" ");
     float dust = readDust();
-  
-    Serial.print("Dust: "); Serial.print(dust); Serial.print(" ");
-    Serial.print("Temp: "); Serial.print(temperature); Serial.print("C ");
-    Serial.print("Humidity: "); Serial.print(humidity); Serial.println("\%");
+
+    Serial.print("Dust: ");
+    Serial.print(dust);
+    Serial.print(" ");
+    Serial.print("Temp: ");
+    Serial.print(temperature);
+    Serial.print("C ");
+    Serial.print("Humidity: ");
+    Serial.print(humidity);
+    Serial.println("\%");
 
     setupWifi();
-    if (!mqttClient.connected()) {
+    if (!mqttClient.connected())
+    {
       mqttReconnect();
     }
 
@@ -114,32 +120,32 @@ void loop() {
 
     delay(1000);
 
-    WiFi.mode( WIFI_OFF);
+    WiFi.mode(WIFI_OFF);
     WiFi.forceSleepBegin();
   }
   delay(5000);
-  
 }
 
+IPAddress ip(192, 168, 0, 171);
+IPAddress gateway(192, 168, 0, 254);
+IPAddress subnet(255, 255, 255, 0);
 
-IPAddress ip( 192, 168, 0, 171 );
-IPAddress gateway( 192, 168, 0, 254 );
-IPAddress subnet( 255, 255, 255, 0 );
-
-void setupWifi() {
+void setupWifi()
+{
 
   WiFi.forceSleepWake();
-  delay( 1 );
-  WiFi.persistent( false );
+  delay(1);
+  WiFi.persistent(false);
   Serial.println("");
   Serial.print("Connecting to ");
   Serial.println(WIFI_SSID);
 
-  WiFi.mode( WIFI_STA );
-  WiFi.config( ip, gateway, subnet );
+  WiFi.mode(WIFI_STA);
+  WiFi.config(ip, gateway, subnet);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     delay(500);
     Serial.print(".");
   }
@@ -152,17 +158,22 @@ void setupWifi() {
   wifi_set_sleep_type(LIGHT_SLEEP_T);
 }
 
-void mqttReconnect() {
-  while (!mqttClient.connected()) {
+void mqttReconnect()
+{
+  while (!mqttClient.connected())
+  {
     Serial.print("Attempting MQTT connection...");
 
     // Attempt to connect
-    if (mqttClient.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASSWORD, MQTT_TOPIC_STATE, 1, true, "disconnected", false)) {
+    if (mqttClient.connect(MQTT_CLIENT_ID, MQTT_USER, MQTT_PASSWORD, MQTT_TOPIC_STATE, 1, true, "disconnected", false))
+    {
       Serial.println("connected");
 
       // Once connected, publish an announcement...
       mqttClient.publish(MQTT_TOPIC_STATE, "connected", true);
-    } else {
+    }
+    else
+    {
       Serial.print("failed, rc=");
       Serial.print(mqttClient.state());
       Serial.println(" try again in 5 seconds");
@@ -171,7 +182,8 @@ void mqttReconnect() {
   }
 }
 
-void mqttPublish(char *topic, float payload) {
+void mqttPublish(char *topic, float payload)
+{
   Serial.print(topic);
   Serial.print(": ");
   Serial.println(payload);
@@ -180,10 +192,12 @@ void mqttPublish(char *topic, float payload) {
 }
 
 #define MATH_E 2.718281828459045235360287
-float absoluteHumidity(float T, float rh){
-  return (6.112 * pow(MATH_E,((17.67 * T)/(T+243.5))) * rh * 18.02) /((273.15+T) * 100 * 0.08314);
+float absoluteHumidity(float T, float rh)
+{
+  return (6.112 * pow(MATH_E, ((17.67 * T) / (T + 243.5))) * rh * 18.02) / ((273.15 + T) * 100 * 0.08314);
 }
 
-float relativeHumidity(float absoluteHumidity, float T) {
-  return (absoluteHumidity * ((273.15+T) * 100 * 0.08314)) / (6.112 * pow(MATH_E,((17.67* T)/(T+243.5))) * 18.02) ;
+float relativeHumidity(float absoluteHumidity, float T)
+{
+  return (absoluteHumidity * ((273.15 + T) * 100 * 0.08314)) / (6.112 * pow(MATH_E, ((17.67 * T) / (T + 243.5))) * 18.02);
 }

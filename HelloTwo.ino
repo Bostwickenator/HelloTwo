@@ -6,6 +6,9 @@
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
+#include <Gaussian.h>
+#include <LinkedList.h>
+#include <GaussianAverage.h>
 
 #define MQTT_TOPIC_HUMIDITY "home/hellotwo/humidity"
 #define MQTT_TOPIC_TEMPERATURE "home/hellotwo/temperature"
@@ -56,35 +59,28 @@ void setup()
   mqttClient.setServer(MQTT_SERVER, 1883);
 }
 
-int dustSamples = 0;
-int dustAcc = 0;
+GaussianAverage myAverage(100);
 void accumulateDust()
 {
-  digitalWrite(DUST_LED, LOW);
-  delayMicroseconds(samplingTime);
+  int s = 0;
+  for (int i = 0; i < 9; i++)
+  {
+    digitalWrite(DUST_LED, LOW);
+    delayMicroseconds(samplingTime);
 
-  dustAcc += analogRead(A0);
+    myAverage +=Gaussian(analogRead(A0),10);
 
-  delayMicroseconds(deltaTime);
-  digitalWrite(DUST_LED, HIGH);
-  delayMicroseconds(sleepTime);
-  dustSamples++;
+    delayMicroseconds(deltaTime);
+    digitalWrite(DUST_LED, HIGH);
+    delayMicroseconds(sleepTime);
+    yield();
+  }
 }
 
-float readDust()
-{
-  float val = ((float)dustAcc) / dustSamples;
-  dustSamples = 0;
-  dustAcc = 0;
-  return val;
-}
 
 void loop()
 {
-  for(int i=0;i<5;i++){
-    accumulateDust();
-    yield();
-  }
+  accumulateDust();
 
   long now = millis();
   if (now - lastMsgTime > MQTT_PUBLISH_DELAY)
@@ -93,10 +89,7 @@ void loop()
 
     temperature = htu.readTemperature();
     humidity = htu.readHumidity();
-    Serial.print("Dust: ");
-    Serial.print(dustSamples);
-    Serial.println(" ");
-    float dust = readDust();
+    float dust = myAverage.process().mean;
 
     Serial.print("Dust: ");
     Serial.print(dust);
@@ -126,7 +119,7 @@ void loop()
     WiFi.mode(WIFI_OFF);
     WiFi.forceSleepBegin();
   }
-  delay(5000);
+  delay(1000);
 }
 
 IPAddress ip(192, 168, 0, 171);
